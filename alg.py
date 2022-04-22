@@ -172,9 +172,12 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
     trend_range, k_i_range, k_d_range = [True, False], [-1., 0., 1.], [-1., 0., 1.]
-    # trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
+    # trend_range, k_i_range, k_d_range = [False], [1.], [1.]
+    #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
     alg_lst = []
+    # Какой алгоритм считает по умолчанию
+    alg_cur_id, alg_cur_dct = 0, dict()
     # Инициализация словарей
     for alg_id, (trend_flag, k_i, k_d) in enumerate(product(trend_range, k_i_range, k_d_range)):
         alg_dct = {'id': alg_id,
@@ -192,11 +195,24 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
         else:
             alg_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
         alg_lst.append(alg_dct)
-
+        # Если доитерировали до индекса алгоритма по умолчанию, создаем для него такой же словарь
+        if alg_id == alg_cur_id:
+            alg_cur_dct = {'id': alg_cur_id,
+                           'params': (trend_flag, k_i, k_d),
+                           'state': 'none',
+                           'des': '',
+                           'history': [],
+                           'dt': dt,
+                           'p': _p_arr,
+                           'dg': dg_arr,
+                           'di': di_arr
+                           }
+            if not trend_flag:
+                alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
+            else:
+                alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
+            alg_lst.append(alg_cur_dct)
     # Main cycle
-    # Какой алгоритм считает по умолчанию
-    id_cur = 0    # 0.004316337290542643
-    alg_cur_id, alg_cur_dct = id_cur, alg_lst[id_cur]
     num_switches = 0
     for i in range(1, n_max - 1):
         if i == n_max - 1:
@@ -229,9 +245,10 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
                   f'dI={round(di_cur, 4)} dg={dg_cur} dg_max={round(dg_max_arr[i], 4)} -> {des_cur}')
         # Переключаемся на новый, если в том есть необходимость
         if alg_new_id >= 0 and dg_cur < 0 and rating_cur[alg_new_id] > dg_cur:
-            alg_cur_id, alg_cur_dct = alg_new_id, alg_lst[alg_new_id]
+            alg_cur_id, alg_cur_dct['params'] = alg_new_id, alg_lst[alg_new_id]['params']
             if output_flag:
-                print(f'Переключаемся на алгоритм {alg_new_id}, который показал dg={rating_cur[alg_new_id]}')
+                print(f'Переключаемся на алгоритм {alg_new_id} c параметрами {alg_lst[alg_new_id]["params"]},',
+                      f'который показал dg={rating_cur[alg_new_id]}')
             num_switches += 1
 
     dg_max_arr = np.array([max([alg['dg'][i] for alg in alg_lst]) for i in range(n_max)])
@@ -284,7 +301,7 @@ def calc_step(i, data_dct):
         for cnt in range(10, -1, -1):
             integ_sum += dg[i - cnt] * coef_arr[10 - cnt]
     # Double-differential part
-    k_dd = 0.
+    k_dd = 1.
     # Decision part
     if state == 'short opened':
         vol = math.fabs(di_new) / history[0]
