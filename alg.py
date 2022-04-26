@@ -127,10 +127,11 @@ def visualize(p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_
     plt.show()
 
 
-def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, diff_max=30., n_const=5000, k_vol=1.):
+def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, diff_max=30., n_const=5000):
     """Тестирование PIDD-алгоритма на >200 различных конфигурациях параметра
     Расчет по алгоритму alg 0.5, на входе массив p и количество часов рабоыт биржи (разное для фьючерсов и биткойна)"""
     # Время для биржи с фьючерсом рубль-доллар -- 14 часов
+    di_0 = 100000.
     # Для биткоина будет 24 часа
     n_max = len(_p_arr)
     t_max = time * 3600
@@ -159,20 +160,24 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i - 1]) / dt
     mu_arr = np.array([])
     dmu_arr = np.array([])
-    k_arr = np.zeros(n_max)
+    k_p_arr = np.zeros(n_max)
     k_i_arr = np.zeros(n_max)
     k_d_arr = np.zeros(n_max)
     k_dd_arr = np.zeros(n_max)
     dg_arr = np.zeros(n_max)
     dg_max_arr = np.zeros(n_max)
     di_arr = np.zeros(n_max)
-    di_arr[1] = 100000.
+    di_arr[1] = di_0
     history = []
     des_str, state = '', 'none'
     alg_id_tpl = (True, 1., 1.)
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
-    trend_range, k_i_range, k_d_range = [True, False], [-1., 0., 1.], [-1., 0., 1.]
+    # trend_range, k_p_range, k_i_range, k_d_range = [True, False], \
+    #                                               np.linspace(-1., 1., 10), \
+    #                                               np.linspace(-1., 1., 11), \
+    #                                               np.linspace(-1., 1., 11)
+    trend_range, k_p_range, k_i_range, k_d_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.]
     # trend_range, k_i_range, k_d_range = [False], [1.], [1.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
@@ -180,9 +185,9 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     # Какой алгоритм считает по умолчанию
     alg_cur_id, alg_cur_dct = 0, dict()
     # Инициализация словарей
-    for alg_id, (trend_flag, k_i, k_d) in enumerate(product(trend_range, k_i_range, k_d_range)):
+    for alg_id, (trend_flag, k_p, k_i, k_d) in enumerate(product(trend_range, k_p_range, k_i_range, k_d_range)):
         alg_dct = {'id': alg_id,
-                   'params': (trend_flag, k_i, k_d),
+                   'params': (trend_flag, k_p, k_i, k_d),
                    'state': 'none',
                    'des': '',
                    'history': [],
@@ -190,7 +195,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                    'p': _p_arr,
                    'dg': np.copy(dg_arr),
                    'di': np.copy(di_arr),
-                   'n_const': n_const
+                   'n_const': n_const,
+                   'di_0': di_0
                    }
         if not trend_flag:
             alg_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
@@ -200,7 +206,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         # Если доитерировали до индекса алгоритма по умолчанию, создаем для него такой же словарь
         if alg_id == alg_cur_id:
             alg_cur_dct = {'id': alg_cur_id,
-                           'params': (trend_flag, k_i, k_d),
+                           'params': (trend_flag, k_p, k_i, k_d),
                            'state': 'none',
                            'des': '',
                            'history': [],
@@ -208,7 +214,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                            'p': _p_arr,
                            'dg': dg_arr,
                            'di': di_arr,
-                           'n_const': n_const
+                           'n_const': n_const,
+                           'di_0': di_0
                            }
             if not trend_flag:
                 alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
@@ -219,13 +226,13 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     num_switches = 0
     for i in range(1, n_max - 1):
         if i == n_max - 1:
-            k_arr[i], k_i_arr[i], k_d_arr[i], k_dd_arr[i], dg_arr[i], di_arr[i] = 0., 0., 0., 0., 0., 0.
+            k_p_arr[i], k_i_arr[i], k_d_arr[i], k_dd_arr[i], dg_arr[i], di_arr[i] = 0., 0., 0., 0., 0., 0.
             break
         dgm = -10.e10
         rating_cur = {}
         for alg_id, alg_dct in enumerate(alg_lst):
             calc_step(i, alg_dct)
-            trend_flag, k_i, k_d = alg_dct['params']
+            trend_flag, k_p, k_i, k_d = alg_dct['params']
             dg, des, state = alg_dct['dg'][i], alg_dct['des'], alg_dct['state']
             # print(f'Алг.{alg_id} с k_i={k_i}, k_d={k_d}, trend={trend_flag}: dg={dg} -> {des}')
             if state == 'none':
@@ -233,7 +240,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
             if dg > dgm:
                 dgm = dg
         dg_max_arr[i] = dgm
-        tf_cur, ki_cur, kd_cur = alg_cur_dct['params']
+        tf_cur, kp_cur, ki_cur, kd_cur = alg_cur_dct['params']
         des_cur = alg_cur_dct['des']
         dg_cur, di_cur, dinxt_cur = alg_cur_dct['dg'][i], alg_cur_dct['di'][i], alg_cur_dct['di'][i+1]
         dg_arr[i], di_arr[i], di_arr[i+1] = dg_cur, di_cur, dinxt_cur
@@ -262,7 +269,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     diff2_ser = pd.Series(diff2_arr, index=t_ticks_arr)
     dtrend_ser = pd.Series(dtrend_arr, index=t_ticks_arr)
     d2trend_ser = pd.Series(d2trend_arr, index=t_ticks_arr)
-    k_ser = pd.Series(k_arr, index=t_ticks_arr)
+    k_p_ser = pd.Series(k_p_arr, index=t_ticks_arr)
     k_i_ser = pd.Series(k_i_arr, index=t_ticks_arr)
     k_d_ser = pd.Series(k_d_arr, index=t_ticks_arr)
     k_dd_ser = pd.Series(k_dd_arr, index=t_ticks_arr)
@@ -274,18 +281,17 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     profit = profit_ser.iloc[-1]
     # if output_flag:
     print('Заработано:', profit, 'число переключений:', num_switches)
-    return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_ser, k_i_ser, k_d_ser, k_dd_ser
+    return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_p_ser, k_i_ser, k_d_ser, k_dd_ser
 
 
-def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
+def calc_step(i, data_dct):
     """
     Один шаг алгоритма. Получаем на вход номер шага и данные.
     """
-    di_0 = 1.
     id = data_dct['id']
-    _, k_i, k_d = data_dct['params']
+    _, k_p, k_i, k_d = data_dct['params']
     p, mu, dmu, di, dg = data_dct['p'], data_dct['mu'], data_dct['dmu'], data_dct['di'], data_dct['dg']
-    mu_min, mu_max = data_dct['mu_min'], data_dct['mu_max']
+    n_const, di_0, mu_min, mu_max = data_dct['n_const'], data_dct['di_0'], data_dct['mu_min'], data_dct['mu_max']
     state, des_str, history, dt = data_dct['state'], data_dct['des'], data_dct['history'], data_dct['dt']
     di_new, di_next = di[i], 0.
     # Производные прибыли dg для управления
@@ -304,7 +310,7 @@ def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
         for cnt in range(10, -1, -1):
             integ_sum += dg[i - cnt] * coef_arr[10 - cnt]
     # Double-differential part
-    k_dd = 1.
+    k_dd = 0.
     # Decision part
     if state == 'short opened':
         vol = math.fabs(di_new) / history[0]
@@ -312,13 +318,18 @@ def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
         dg_pos = - (p[i] - history[0]) * vol
         if dg_pos > 0. or len(history) > 2:
             des_str, state = 'Close short', 'none'
-            k_p = 1.
+            k_p *= 1.
             dg_new = dg_pos
-            di_next = .25 * 5000 * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
+            if 0. < di_next < .001:
+                di_next = di_0
+            elif -.001 < di_next < 0.:
+                di_next = -di_0
+            else:
+                di_next = .25 * n_const * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
             history = []
         else:
             des_str, state = 'Hold', 'short opened'
-            k_p = 0.
+            k_p *= 0.
             dg_new = 0.
             di_new, di_next = 0., di_new
             history.append(p[i])
@@ -329,13 +340,18 @@ def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
         # dg_pos = (p[i] - history[0]) * math.fabs(di_new) / p[i]
         if dg_pos > 0. or len(history) > 2:
             des_str, state = 'Close long', 'none'
-            k_p = -1.
+            k_p *= -1.
             dg_new = dg_pos
-            di_next = .25 * 5000 * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
+            if 0. < di_next < .001:
+                di_next = di_0
+            elif -.001 < di_next < 0.:
+                di_next = -di_0
+            else:
+                di_next = .25 * n_const * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
             history = []
         else:
             des_str, state = 'Hold', 'long opened'
-            k_p = 0.
+            k_p *= 0.
             dg_new = 0.
             di_next = di_new
             di_new = 0.
@@ -344,19 +360,29 @@ def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
         # if di[i] * mu[i] > 0.:
         if di[i] > 0.:
             des_str, state = 'Open long', 'long opened'
-            k_p = 1.
+            k_p *= 1.
         # elif di[i] * mu[i] < 0.:
         elif di[i] < 0.:
             des_str, state = 'Open short', 'short opened'
-            k_p = -1.
+            k_p *= -1.
         else:
-            raise ValueError('di = 0 либо dmu = 0', di_next, di_new, mu[i])
+
+
+
+            qq = 1.
+
+
+            print(i, di[i], di[i+1], dg[i])
+
+
+
+            raise ValueError('di = 0 либо dmu = 0')
         dg_new = 0.
         di_next = - di_new
         history = [p[i]]
     else:
         des_str, state = 'Hold', 'none'
-        k_p = 0.
+        k_p *= 0.
         dg_new = 0.
         di_next = di_new
         di_new = 0.
@@ -370,13 +396,5 @@ if __name__ == '__main__':
     data_tuple = load_test_data()
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[0], time=14, output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[4], time=24, output_flag=True, diff_min=.1, diff_max=300, n_const=5000.)
     visualize(*res_tpl)
-
-
-
-
-
-
-
-
