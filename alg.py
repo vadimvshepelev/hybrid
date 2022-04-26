@@ -127,7 +127,7 @@ def visualize(p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_
     plt.show()
 
 
-def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
+def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, diff_max=30., n_const=5000, k_vol=1.):
     """Тестирование PIDD-алгоритма на >200 различных конфигурациях параметра
     Расчет по алгоритму alg 0.5, на входе массив p и количество часов рабоыт биржи (разное для фьючерсов и биткойна)"""
     # Время для биржи с фьючерсом рубль-доллар -- 14 часов
@@ -137,8 +137,9 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
     t_arr = np.linspace(0., t_max, n_max)
     dt = t_arr[1] - t_arr[0]
     # Настроечные параметры
-    diff_min = .1
-    diff_max = 30.
+    # diff_min и diff_max выношу в именные параметры функции
+    # diff_min = .1
+    # diff_max = 30.
     trend_min = diff_min/dt
     trend_max = diff_max/dt
     # Для интегрального члена
@@ -188,7 +189,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
                    'dt': dt,
                    'p': _p_arr,
                    'dg': np.copy(dg_arr),
-                   'di': np.copy(di_arr)
+                   'di': np.copy(di_arr),
+                   'n_const': n_const
                    }
         if not trend_flag:
             alg_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
@@ -205,7 +207,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
                            'dt': dt,
                            'p': _p_arr,
                            'dg': dg_arr,
-                           'di': di_arr
+                           'di': di_arr,
+                           'n_const': n_const
                            }
             if not trend_flag:
                 alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
@@ -274,7 +277,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14):
     return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_ser, k_i_ser, k_d_ser, k_dd_ser
 
 
-def calc_step(i, data_dct):
+def calc_step(i, data_dct, mu_min=.1, mu_max=30., n_const=5000, k_vol=1.):
     """
     Один шаг алгоритма. Получаем на вход номер шага и данные.
     """
