@@ -98,8 +98,6 @@ def visualize(p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_
     ax[1][0].plot(dg_max_ser)
     ax[1][0].grid()
 
-
-
     ax[0][1].set_title("Instant profit")
     ax[0][1].set_xlabel("t")  # ось абсцисс
     ax[0][1].set_ylabel("dg")  # ось ординат
@@ -127,7 +125,7 @@ def visualize(p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_
     plt.show()
 
 
-def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, diff_max=30., n_const=5000):
+def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, diff_max=30.):
     """Тестирование PIDD-алгоритма на >200 различных конфигурациях параметра
     Расчет по алгоритму alg 0.5, на входе массив p и количество часов рабоыт биржи (разное для фьючерсов и биткойна)"""
     # Время для биржи с фьючерсом рубль-доллар -- 14 часов
@@ -173,11 +171,12 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     alg_id_tpl = (True, 1., 1.)
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
-    # trend_range, k_p_range, k_i_range, k_d_range = [True, False], \
-    #                                               np.linspace(-1., 1., 10), \
-    #                                               np.linspace(-1., 1., 11), \
-    #                                               np.linspace(-1., 1., 11)
-    trend_range, k_p_range, k_i_range, k_d_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.]
+    trend_range = [True, False]
+    k_p_range = np.linspace(-1., 1., 10)
+    k_i_range = np.linspace(-1., 1., 11)
+    k_d_range = np.linspace(-1., 1., 11)
+    h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])
+    # trend_range, k_p_range, k_i_range, k_d_range = [True, False], [-1.], [0., -1.], [0., -1.]
     # trend_range, k_i_range, k_d_range = [False], [1.], [1.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
@@ -185,7 +184,11 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     # Какой алгоритм считает по умолчанию
     alg_cur_id, alg_cur_dct = 0, dict()
     # Инициализация словарей
-    for alg_id, (trend_flag, k_p, k_i, k_d) in enumerate(product(trend_range, k_p_range, k_i_range, k_d_range)):
+    for alg_id, (trend_flag, k_p, k_i, k_d, h) in enumerate(product(trend_range,
+                                                                 k_p_range,
+                                                                 k_i_range,
+                                                                 k_d_range,
+                                                                 h_range)):
         alg_dct = {'id': alg_id,
                    'params': (trend_flag, k_p, k_i, k_d),
                    'state': 'none',
@@ -195,7 +198,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                    'p': _p_arr,
                    'dg': np.copy(dg_arr),
                    'di': np.copy(di_arr),
-                   'n_const': n_const,
+                   'h': h,
                    'di_0': di_0
                    }
         if not trend_flag:
@@ -203,25 +206,24 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         else:
             alg_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
         alg_lst.append(alg_dct)
-        # Если доитерировали до индекса алгоритма по умолчанию, создаем для него такой же словарь
-        if alg_id == alg_cur_id:
-            alg_cur_dct = {'id': alg_cur_id,
-                           'params': (trend_flag, k_p, k_i, k_d),
-                           'state': 'none',
-                           'des': '',
-                           'history': [],
-                           'dt': dt,
-                           'p': _p_arr,
-                           'dg': dg_arr,
-                           'di': di_arr,
-                           'n_const': n_const,
-                           'di_0': di_0
-                           }
-            if not trend_flag:
-                alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
-            else:
-                alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
-            alg_lst.append(alg_cur_dct)
+        # Cоздаем для алгоритма по умолчанию отдельный словарь последним номером в списке alg_lst
+        alg_cur_dct = {'id': alg_cur_id,
+                       'params': (trend_flag, k_p, k_i, k_d),
+                       'state': 'none',
+                       'des': '',
+                       'history': [],
+                       'dt': dt,
+                       'p': _p_arr,
+                       'dg': dg_arr,
+                       'di': di_arr,
+                       'h': h,
+                       'di_0': di_0
+                       }
+        if not trend_flag:
+            alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
+        else:
+            alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
+        alg_lst.append(alg_cur_dct)
     # Main cycle
     num_switches = 0
     for i in range(1, n_max - 1):
@@ -231,6 +233,16 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         dgm = -10.e10
         rating_cur = {}
         for alg_id, alg_dct in enumerate(alg_lst):
+
+
+            if i == 2 and alg_id == 0:
+
+                qq = 1.
+
+
+
+
+
             calc_step(i, alg_dct)
             trend_flag, k_p, k_i, k_d = alg_dct['params']
             dg, des, state = alg_dct['dg'][i], alg_dct['des'], alg_dct['state']
@@ -256,8 +268,9 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         # Переключаемся на новый, если в том есть необходимость
         if alg_new_id >= 0 and dg_cur < 0 and rating_cur[alg_new_id] > dg_cur:
             alg_cur_id, alg_cur_dct['params'] = alg_new_id, alg_lst[alg_new_id]['params']
+            h_cur = alg_cur_dct['h']
             if output_flag:
-                print(f'Переключаемся на алгоритм {alg_new_id} c параметрами {alg_lst[alg_new_id]["params"]},',
+                print(f'Переключаемся на алгоритм {alg_new_id} c параметрами {alg_lst[alg_new_id]["params"]}, h={h_cur}',
                       f'который показал dg={rating_cur[alg_new_id]}')
             num_switches += 1
 
@@ -291,7 +304,7 @@ def calc_step(i, data_dct):
     id = data_dct['id']
     _, k_p, k_i, k_d = data_dct['params']
     p, mu, dmu, di, dg = data_dct['p'], data_dct['mu'], data_dct['dmu'], data_dct['di'], data_dct['dg']
-    n_const, di_0, mu_min, mu_max = data_dct['n_const'], data_dct['di_0'], data_dct['mu_min'], data_dct['mu_max']
+    h, di_0, mu_min, mu_max = data_dct['h'], data_dct['di_0'], data_dct['mu_min'], data_dct['mu_max']
     state, des_str, history, dt = data_dct['state'], data_dct['des'], data_dct['history'], data_dct['dt']
     di_new, di_next = di[i], 0.
     # Производные прибыли dg для управления
@@ -325,7 +338,7 @@ def calc_step(i, data_dct):
             elif -.001 < di_next < 0.:
                 di_next = -di_0
             else:
-                di_next = .25 * n_const * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
+                di_next = .25 * h * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
             history = []
         else:
             des_str, state = 'Hold', 'short opened'
@@ -347,7 +360,7 @@ def calc_step(i, data_dct):
             elif -.001 < di_next < 0.:
                 di_next = -di_0
             else:
-                di_next = .25 * n_const * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
+                di_next = .25 * h * (k_p * dg_new + k_i * integ_sum + k_d * dg_diff + k_dd * dg_diff_diff)
             history = []
         else:
             des_str, state = 'Hold', 'long opened'
@@ -366,17 +379,11 @@ def calc_step(i, data_dct):
             des_str, state = 'Open short', 'short opened'
             k_p *= -1.
         else:
-
-
-
             qq = 1.
-
-
+            print(id)
             print(i, di[i], di[i+1], dg[i])
-
-
-
-            raise ValueError('di = 0 либо dmu = 0')
+            print(h, data_dct['params'])
+            raise ValueError('di = 0')
         dg_new = 0.
         di_next = - di_new
         history = [p[i]]
@@ -393,8 +400,9 @@ def calc_step(i, data_dct):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data()
+    data_tuple = load_test_data(step=5000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[4], time=24, output_flag=True, diff_min=.1, diff_max=300, n_const=5000.)
+    res_tpl = calc_hybrid_alg(data_tuple[3], time=14, output_flag=True)
     visualize(*res_tpl)
+
