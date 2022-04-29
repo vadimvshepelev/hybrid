@@ -171,13 +171,13 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     alg_id_tpl = (True, 1., 1.)
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
-    trend_range = [True, False]
+    """trend_range = [True, False]
     k_p_range = np.linspace(-1., 1., 10)
     k_i_range = np.linspace(-1., 1., 11)
     k_d_range = np.linspace(-1., 1., 11)
-    h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])
+    h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])"""
     # trend_range, k_p_range, k_i_range, k_d_range = [True, False], [-1.], [0., -1.], [0., -1.]
-    # trend_range, k_i_range, k_d_range = [False], [1.], [1.]
+    trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
     alg_lst = []
@@ -235,7 +235,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         for alg_id, alg_dct in enumerate(alg_lst):
 
 
-            if i == 2 and alg_id == 0:
+            if i == 4 and alg_id == 0:
 
                 qq = 1.
 
@@ -310,6 +310,14 @@ def calc_step(i, data_dct):
     # Производные прибыли dg для управления
     dg_diff = 0.
     dg_diff_prev = 0.
+
+
+    if i==3:
+        qq = 0.
+
+
+
+
     if i > 1:
         dg_diff = (dg[i-1] - dg[i-2]) / dt
     if i > 2:
@@ -403,6 +411,6 @@ if __name__ == '__main__':
     data_tuple = load_test_data(step=5000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[3], time=14, output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[0], time=14, output_flag=True)
     visualize(*res_tpl)
 
