@@ -176,7 +176,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     k_i_range = np.linspace(-1., 1., 11)
     k_d_range = np.linspace(-1., 1., 11)
     h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])"""
-    # trend_range, k_p_range, k_i_range, k_d_range = [True, False], [-1.], [0., -1.], [0., -1.]
+    # trend_range, k_p_range, k_i_range, k_d_range, h_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [5000.]
     trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
@@ -235,7 +235,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         for alg_id, alg_dct in enumerate(alg_lst):
 
 
-            if i == 4 and alg_id == 0:
+            if i == 3 and alg_id == 0:
 
                 qq = 1.
 
@@ -312,9 +312,11 @@ def calc_step(i, data_dct):
     dg_diff_prev = 0.
 
 
-    if i==3:
+    if i==31:
         qq = 0.
 
+    if i==2 and id==0:
+        qq = 0.
 
 
 
@@ -335,9 +337,9 @@ def calc_step(i, data_dct):
     # Decision part
     if state == 'short opened':
         vol = math.fabs(di_new) / history[0]
-        di_new = vol * p[i]
         dg_pos = - (p[i] - history[0]) * vol
         if dg_pos > 0. or len(history) > 2:
+            di_new = vol * p[i]
             des_str, state = 'Close short', 'none'
             k_p *= 1.
             dg_new = dg_pos
@@ -356,10 +358,9 @@ def calc_step(i, data_dct):
             history.append(p[i])
     elif state == 'long opened':
         vol = math.fabs(di_new) / history[0]
-        di_new = - vol * p[i]
         dg_pos = (p[i] - history[0]) * vol
-        # dg_pos = (p[i] - history[0]) * math.fabs(di_new) / p[i]
         if dg_pos > 0. or len(history) > 2:
+            di_new = - vol * p[i]
             des_str, state = 'Close long', 'none'
             k_p *= -1.
             dg_new = dg_pos
@@ -389,7 +390,7 @@ def calc_step(i, data_dct):
         else:
             qq = 1.
             print(id)
-            print(i, di[i], di[i+1], dg[i])
+            print(f'step={i}, alg={id}, params={data_dct["params"]}, di[i]={di[i]}, di[i+1]={di[i+1]}, dg[i]={dg[i]}')
             print(h, data_dct['params'])
             raise ValueError('di = 0')
         dg_new = 0.
