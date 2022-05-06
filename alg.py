@@ -176,8 +176,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     k_i_range = np.linspace(-1., 1., 11)
     k_d_range = np.linspace(-1., 1., 11)
     h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])"""
-    # trend_range, k_p_range, k_i_range, k_d_range, h_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [5000.]
-    trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
+    trend_range, k_p_range, k_i_range, k_d_range, h_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [5000.]
+    # trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
     alg_lst = []
@@ -206,24 +206,24 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         else:
             alg_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
         alg_lst.append(alg_dct)
-        # Cоздаем для алгоритма по умолчанию отдельный словарь последним номером в списке alg_lst
-        alg_cur_dct = {'id': alg_cur_id,
-                       'params': (trend_flag, k_p, k_i, k_d),
-                       'state': 'none',
-                       'des': '',
-                       'history': [],
-                       'dt': dt,
-                       'p': _p_arr,
-                       'dg': dg_arr,
-                       'di': di_arr,
-                       'h': h,
-                       'di_0': di_0
-                       }
-        if not trend_flag:
-            alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
-        else:
-            alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
-        alg_lst.append(alg_cur_dct)
+    # Cоздаем для алгоритма по умолчанию отдельный словарь последним номером в списке alg_lst
+    alg_cur_dct = {'id': alg_cur_id,
+                   'params': (trend_flag, k_p, k_i, k_d),
+                   'state': 'none',
+                   'des': '',
+                   'history': [],
+                   'dt': dt,
+                   'p': _p_arr,
+                   'dg': dg_arr,
+                   'di': di_arr,
+                   'h': h,
+                   'di_0': di_0
+                   }
+    if not trend_flag:
+        alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
+    else:
+        alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
+    alg_lst.append(alg_cur_dct)
     # Main cycle
     num_switches = 0
     for i in range(1, n_max - 1):
@@ -235,7 +235,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         for alg_id, alg_dct in enumerate(alg_lst):
 
 
-            if i == 3 and alg_id == 0:
+            if i == 2 and alg_id == 0:
 
                 qq = 1.
 
@@ -409,9 +409,9 @@ def calc_step(i, data_dct):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=5000)
+    data_tuple = load_test_data(step=15000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[0], time=14, output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[4], time=24, output_flag=True)
     visualize(*res_tpl)
 
