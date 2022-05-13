@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 import zipfile
 
+from trading import Position
 
 def load_test_data(step=5000):
     """
@@ -193,6 +194,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                    'params': (trend_flag, k_p, k_i, k_d),
                    'state': 'none',
                    'des': '',
+                   'pos': None,
                    'history': [],
                    'dt': dt,
                    'p': _p_arr,
@@ -211,6 +213,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                    'params': (trend_flag, k_p, k_i, k_d),
                    'state': 'none',
                    'des': '',
+                   'pos': None,
                    'history': [],
                    'dt': dt,
                    'p': _p_arr,
@@ -409,9 +412,9 @@ def calc_step(i, data_dct):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=15000)
+    data_tuple = load_test_data(step=5000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[4], time=24, output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[0], output_flag=True)
     visualize(*res_tpl)
 
