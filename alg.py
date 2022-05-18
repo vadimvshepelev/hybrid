@@ -144,8 +144,16 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     trend_max = diff_max/dt
     # Для интегрального члена
     dg_diff_prev = 0.
-    diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i > 9 else 0. for i in range(n_max)])
-    diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i > 9 else 0. for i in range(n_max)])
+
+
+    # ( поставить > 10), сейчас просто тестирую обратную совместимость
+
+    diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i > 10 else 0. for i in range(n_max)])
+    diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i > 10 else 0. for i in range(n_max)])
+
+
+
+
     dtrend_arr = np.zeros(n_max)
     d2trend_arr = np.zeros(n_max)
     # Считаем тренды и разности для передачи в алгоритмы
@@ -167,9 +175,6 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     dg_max_arr = np.zeros(n_max)
     di_arr = np.zeros(n_max)
     di_arr[1] = di_0
-    history = []
-    des_str, state = '', 'none'
-    alg_id_tpl = (True, 1., 1.)
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
     """trend_range = [True, False]
@@ -177,8 +182,9 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     k_i_range = np.linspace(-1., 1., 11)
     k_d_range = np.linspace(-1., 1., 11)
     h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])"""
-    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [1.]
+    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
     # trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
+    # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [-1.], [-1.], [1.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
     alg_lst = []
@@ -191,50 +197,15 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                                                                        k_i_range,
                                                                        k_d_range,
                                                                        k_dd_range)):
-        mu_min, mu_max = (trend_min, trend_max) if trend_flag else (diff_min, diff_max)
+        mu_arr, mu_min, mu_max = (dtrend_arr, trend_min, trend_max) if trend_flag else (diff_arr, diff_min, diff_max)
+        dmu_arr = d2trend_arr if trend_flag else diff2_arr
         alg_lst.append(AlgTrivial(p=_p_arr, mu=mu_arr, dmu=dmu_arr, mu_min=mu_min, mu_max=mu_max, dt=dt, _N=n_max,
+                                  di_0=di_0,
                                   idx=alg_id, trend_flag=trend_flag, k_p=k_p, k_i=k_i, k_d=k_d, k_dd=k_dd
                                   ))
 
-        """
-        alg_dct = {'id': alg_id,
-                   'params': (trend_flag, k_p, k_i, k_d),
-                   'state': 'none',
-                   'des': '',
-                   'pos': None,
-                   'history': [],
-                   'dt': dt,
-                   'p': _p_arr,
-                   'dg': np.copy(dg_arr),
-                   'di': np.copy(di_arr),
-                   'h': h,
-                   'di_0': di_0
-                   }
-        if not trend_flag:
-            alg_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
-        else:
-            alg_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
-        alg_lst.append(alg_dct)
-    # Cоздаем для алгоритма по умолчанию отдельный словарь последним номером в списке alg_lst
-    alg_cur_dct = {'id': alg_cur_id,
-                   'params': (trend_flag, k_p, k_i, k_d),
-                   'state': 'none',
-                   'des': '',
-                   'pos': None,
-                   'dt': dt,
-                   'p': _p_arr,
-                   'dg': dg_arr,
-                   'di': di_arr,
-                   'h': h,
-                   'di_0': di_0
-                   }
-    if not trend_flag:
-        alg_cur_dct.update({'mu': diff_arr, 'dmu': diff2_arr, 'mu_min': diff_min, 'mu_max': diff_max})
-    else:
-        alg_cur_dct.update({'mu': dtrend_arr, 'dmu': d2trend_arr, 'mu_min': trend_min, 'mu_max': trend_max})
-    alg_lst.append(alg_cur_dct)
-    """
     # Main cycle
+    alg_cur = alg_lst[0]
     num_switches = 0
     for i in range(1, n_max - 1):
         ##### DEBUG ########
@@ -242,46 +213,38 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
             pp = 0.
         if i == 5:
             pp = 0.
+        if i == 12:
+            pp = 0.
         ####################
         if i == n_max - 1:
             k_p_arr[i], k_i_arr[i], k_d_arr[i], k_dd_arr[i], dg_arr[i], di_arr[i] = 0., 0., 0., 0., 0., 0.
             break
         dgm = -10.e10
-        alg_cur = alg_lst[0]
-        rating_cur = {}
+        rating_cur = dict()
         for alg_id, alg in enumerate(alg_lst):
-            ####### DEBUG #############
-            if alg_id == 0:
-                pp = 1.
-            ###########################
-            dg_alg, di_alg, di_next_alg = alg.calc_step(i, di_arr[i])
-            if alg_cur == alg:
-                dg_cur, di_cur, di_next_cur = dg_alg, di_alg, di_next_alg
-                des_cur = alg_cur.des
-                dg_arr[i], di_arr[i], di_arr[i + 1] = dg_cur, di_cur, di_next_cur
-            trend_flag, k_p, k_i, k_d, k_dd = alg.trend_flag, alg.k_p, alg.k_i, alg.k_d, alg.k_dd
-            des_cur = alg.des
-            if not alg.pos:
-                rating_cur[alg_id] = dg_cur
-            if dg_alg > dgm:
-                dgm = dg_alg
+            alg.calc_step(i)
+            dg = alg.dg[i]
+            rating_cur[alg_id] = dg
+            if dg > dgm:
+                dgm = dg
         dg_max_arr[i] = dgm
+        dg_arr[i], di_arr[i], di_arr[i+1] = alg_cur.dg[i], alg_cur.di[i], alg_cur.di[i+1]
+        des = alg_cur.des
         tf_cur, kp_cur, ki_cur, kd_cur, kdd_cur = alg_cur.trend_flag, alg_cur.k_p, alg_cur.k_i, alg_cur.k_d, alg_cur.k_dd
         alg_new_id = max(rating_cur, key=rating_cur.get) if rating_cur else -1
         if output_flag:
-            # print(f'Выбираем мз алгоритмов {rating_cur.keys()} с прибылями {rating_cur.values()}')
+            # print(f'Выбираем из алгоритмов {rating_cur.keys()} с прибылями {rating_cur.values()}')
             # print(f'Максимальная прибыль у алгоритма {alg_new_id}')
             # print(f'Текущий алгоритм {alg_cur_id}: с k = ({trend_flag}, {k_i}, {k_d}) и решением {des_cur}')
             print(f'{i}: alg{alg_cur_id} t={round(t_arr[i]/3600., 2)} p={_p_arr[i]}',
                   f'd/d2={round(diff_arr[i], 4)}/{round(diff2_arr[i], 4)}',
                   f'dtr/d2tr={round(dtrend_arr[i], 4)}/{round(d2trend_arr[i], 4)}',
-                  f'dI={round(di_cur, 4)} dg={dg_cur} dg_max={round(dg_max_arr[i], 4)} -> {des_cur}')
+                  f'dI={round(di_arr[i], 4)} dg={dg_arr[i]} dg_max={round(dg_max_arr[i], 4)} -> {des}')
         # Переключаемся на новый, если в том есть необходимость
-        if alg_new_id >= 0 and dg_cur < 0 and rating_cur[alg_new_id] > dg_cur:
-
+        if alg_new_id >= 0 and dg_arr[i] < 0 and rating_cur[alg_new_id] > dg_arr[i]:
 
             # В переключении не учитываются два фактора, исправить:
-            # 1) Возможно, разность/тренд не передаютяс вместе с флагом! Это надо проверить, меняться должен не только
+            # done 1) Возможно, разность/тренд не передаютяс вместе с флагом! Это надо проверить, меняться должен не только
             # флаг, но и массив с разностями/трендами, иначе параметры алгоритма не соответствуют тому, как он на самом
             # деле считает
             # 2) Статусы для переключения надо брать не только none, но и short closed/long closed, т.е. слишком
@@ -289,15 +252,14 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
             # 3) Поправить инвестмент при шорте, он не меньше нуля сначала, он тоже больше нуля (стоимость актива
             # блокируется на счету.
 
-
-            alg_cur_id, alg_cur_dct['params'] = alg_new_id, alg_lst[alg_new_id]['params']
-            h_cur = alg_cur_dct['h']
+            alg_cur = alg_lst[alg_new_id]
+            params = alg_cur.trend_flag, alg_cur.k_p, alg_cur.k_i, alg_cur.k_d, alg_cur.k_dd
             if output_flag:
-                print(f'Переключаемся на алгоритм {alg_new_id} c параметрами {alg_lst[alg_new_id]["params"]}, h={h_cur}',
+                print(f'Переключаемся на алгоритм {alg_cur.idx} c параметрами {params}',
                       f'который показал dg={rating_cur[alg_new_id]}')
             num_switches += 1
 
-    dg_max_arr = np.array([max([alg['dg'][i] for alg in alg_lst]) for i in range(n_max)])
+    dg_max_arr = np.array([max([alg.dg[i] for alg in alg_lst]) for i in range(n_max)])
 
     t_ticks_arr = t_arr / 3600.
     p_ser = pd.Series(_p_arr, index=t_ticks_arr)
