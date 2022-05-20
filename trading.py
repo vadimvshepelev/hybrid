@@ -88,11 +88,11 @@ class AlgTrivial:
                 self.di[i], self.di[i+1] = 0., self.di[i]
                 self.pos.hold()
         elif self.mu_min < math.fabs(self.mu[i]) < self.mu_max:
-            if math.fabs(self.di[i]) < 1.e-5:
+            """if math.fabs(self.di[i]) < 1.e-5:
                 print(self.idx)
                 print(f'step={i}, alg={self.idx}, params={(self.trend_flag, self.k_p, self.k_i, self.k_d, self.k_dd)}',
                       f'di_cur={self.di[i]}, di_next={self.di[i+1]}, dg_cur={self.dg[i]}')
-                raise ValueError(f'di = 0 (real value is {self.di[i]}')
+                raise ValueError(f'di = 0 (real value is {self.di[i]}')"""
             self.pos = Position(self.di[i], self.p[i])
             self.des = 'Open ' + self.pos.type
             self.dg[i] = 0.
@@ -104,20 +104,26 @@ class AlgTrivial:
         return
 
     def __str__(self):
-        return f'alg {self.idx}: {self.trend_flag} {self.k_p} {self.k_i} {self.k_d} {self.k_dd}'
+        return f'alg {self.idx}: {self.trend_flag} {round(self.k_p, 3)} ' + \
+               f'{round(self.k_i, 3)} {round(self.k_d,3)} {round(self.k_dd, 3)}'
 
 
 class AlgCombined:
     """Несколько алгоритмов, торгующих в связке для получения результата"""
-    def __init__(self, alg_lst=[], _N=0, di_0=100000.):
+    def __init__(self, alg_lst=[], _N=-1):
         self.algs = []
-        self.number = len(alg_lst)
+        self.n_max = _N
+        # self.number = len(alg_lst) нужно ли?
         for alg in alg_lst:
             self.algs.append(alg)
-        self.dg = np.zeros(_N)
-        self.di = np.zeros(_N)
-        self.di[1] = di_0
+        self.dg = np.zeros(self.n_max)
+        self.di = np.zeros(self.n_max)
 
-    def calc_step(self):
-        for alg in self.algs:
-            alg.calc_step
+    def calc_step(self, i):
+        self.dg[i] = sum(alg.dg[i] for alg in self.algs)/5.
+        self.di[i] = sum(alg.di[i] for alg in self.algs)/5.
+        if i < self.n_max-1:
+            self.di[i+1] = sum(alg.di[i+1] for alg in self.algs)/5.
+
+    def __str__(self):
+        return ' '.join(str(elem.idx) for elem in self.algs)

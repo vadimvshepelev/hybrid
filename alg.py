@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 import zipfile
 
-from trading import Position, AlgTrivial
+from trading import Position, AlgTrivial, AlgCombined
 
 def load_test_data(step=5000):
     """
@@ -144,14 +144,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     trend_max = diff_max/dt
     # Для интегрального члена
     dg_diff_prev = 0.
-
-
-    # ( поставить > 10), сейчас просто тестирую обратную совместимость
-
     diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i > 10 else 0. for i in range(n_max)])
     diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i > 10 else 0. for i in range(n_max)])
-
-
 
 
     dtrend_arr = np.zeros(n_max)
@@ -175,14 +169,23 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     dg_max_arr = np.zeros(n_max)
     di_arr = np.zeros(n_max)
     di_arr[1] = di_0
+
+    dg_arr_comb = np.zeros(n_max)
+    di_arr_comb = np.zeros(n_max)
+    alg_lst_comb = [0, 1, 2]
+
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
-    """trend_range = [True, False]
-    k_p_range = np.linspace(-1., 1., 10)
-    k_i_range = np.linspace(-1., 1., 11)
-    k_d_range = np.linspace(-1., 1., 11)
-    h_range = np.array([-5000., -2000., -500., 500., 2000., 5000.])"""
-    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
+    trend_range = [True, False]
+    k_p_range = np.linspace(-1., 1., 4)
+    k_i_range = np.linspace(-1., 1., 4)
+    k_d_range = np.linspace(-1., 1., 4)
+    k_dd_range = [0.]
+
+    # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
+    
+    
+    
     # trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
     # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [-1.], [-1.], [1.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
@@ -204,9 +207,10 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                                   idx=alg_id, trend_flag=trend_flag, k_p=k_p, k_i=k_i, k_d=k_d, k_dd=k_dd
                                   ))
 
-    # Main cycle
+    comb = AlgCombined(alg_lst[:5], n_max)
     alg_cur = alg_lst[0]
     num_switches = 0
+    # Main cycle
     for i in range(1, n_max - 1):
         ##### DEBUG ########
         if i == 4:
@@ -240,6 +244,24 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                   f'd/d2={round(diff_arr[i], 4)}/{round(diff2_arr[i], 4)}',
                   f'dtr/d2tr={round(dtrend_arr[i], 4)}/{round(d2trend_arr[i], 4)}',
                   f'dI={round(di_arr[i], 4)} dg={dg_arr[i]} dg_max={round(dg_max_arr[i], 4)} -> {des}')
+            print(f'Комбинированный алгоритм: {comb}')
+
+        # Теперь смотрим, что наторгует комбинированный алгоритм
+        # dg_arr_comb[i] = sum(alg_lst[j].dg[i] for j in alg_lst_comb)
+        # di_arr_comb[i] = sum(alg_lst[j].di[i] for j in alg_lst_comb)
+        # di_arr_comb[i+1] = sum(alg_lst[j].di[i+1] for j in alg_lst_comb)
+        comb.calc_step(i)
+        # Меняем его состав по максимальным прибылям, если есть потребность
+        # sorted(comb.algs, key=lambda x: x.dg[i], reverse=True)
+        for alg_id in rating_cur:
+            new_alg_lst = [elem for elem in comb.algs]
+            trivial_profit = alg_lst[alg_id].dg.cumsum()[i]
+            for alg in comb.algs:
+                alg_profit = alg.dg.cumsum()[i]
+                if not alg.pos and not alg_lst[alg_id].pos and trivial_profit > alg_profit:
+                    new_alg_lst.remove(alg)
+                    new_alg_lst.append(alg_lst[alg_id])
+        comb.algs = [elem for elem in new_alg_lst]
         # Переключаемся на новый, если в том есть необходимость
         if alg_new_id >= 0 and dg_arr[i] < 0 and rating_cur[alg_new_id] > dg_arr[i]:
 
@@ -259,6 +281,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                       f'который показал dg={rating_cur[alg_new_id]}')
             num_switches += 1
 
+
+
     dg_max_arr = np.array([max([alg.dg[i] for alg in alg_lst]) for i in range(n_max)])
 
     t_ticks_arr = t_arr / 3600.
@@ -277,6 +301,11 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     i_ser = pd.Series(np.cumsum(di_ser), index=t_ticks_arr)
     profit_ser = pd.Series(np.cumsum(dg_ser), index=t_ticks_arr)
     profit = profit_ser.iloc[-1]
+
+    dg_comb = comb.dg
+
+    visualize_trivials({str(alg): alg.dg for alg in alg_lst}, dg_arr, dg_max_arr, dg_comb, t_arr)
+
     # if output_flag:
     print('Заработано:', profit, 'число переключений:', num_switches)
     return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_p_ser, k_i_ser, k_d_ser, k_dd_ser
@@ -343,10 +372,41 @@ def calc_step(i, data_dct):
     return
 
 
+def visualize_trivials(algs_dct, dg_hybrid, dg_max, dg_comb, t_arr):
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_title(f'Торговля с переключением на {len(algs_dct)} алгоритмах')
+    legend = []
+    g_hybrid_ser = pd.Series(dg_hybrid.cumsum(), index=t_arr)
+    g_max_ser = pd.Series(dg_max.cumsum(), index=t_arr)
+    g_comb_ser = pd.Series(dg_comb.cumsum(), index=t_arr)
+    ax.plot(g_hybrid_ser, linewidth=4, color='magenta', zorder=5)
+    ax.plot(g_max_ser, linewidth=4, color='cyan', linestyle=':', zorder=5)
+    ax.plot(g_comb_ser, linewidth=4, color='green', zorder=5)
+    legend.extend(['Алгоритм с переключением',
+                   'Боженька торгует так (теоретический максимум)',
+                   'Комбинированный алгоритм'])
+    legend_trivial = []
+    for alg_str in algs_dct:
+        g_ser = pd.Series(algs_dct[alg_str].cumsum(), index=t_arr)
+        ax.plot(g_ser, linewidth=1)
+        legend_trivial.append(alg_str)
+    # Прореживаем легенду, чтобы осталось 5-6 алгоритмов даже из очень большого количества
+    # legend_step = len(legend_trivial) // 5
+    # legend_trivial = legend_trivial[::legend_step]
+    # Или даже еще проще:
+    legend_trivial = legend_trivial[:5]
+    legend.extend(legend_trivial)
+    legend.append('... и т.д.')
+    ax.legend(legend)
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Profit')
+    plt.show()
+
+
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=5000)
+    data_tuple = load_test_data(step=15000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[0], output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[4], output_flag=True)
     visualize(*res_tpl)
 
