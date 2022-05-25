@@ -144,8 +144,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     trend_max = diff_max/dt
     # Для интегрального члена
     dg_diff_prev = 0.
-    diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i > 10 else 0. for i in range(n_max)])
-    diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i > 10 else 0. for i in range(n_max)])
+    diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i >= 10 else 0. for i in range(n_max)])
+    diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i >= 10 else 0. for i in range(n_max)])
 
 
     dtrend_arr = np.zeros(n_max)
@@ -158,7 +158,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         # dtrend_arr[i] = (gdp_trend[i] - gdp_trend[i-1]) / dt
         # d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i-1]) / dt
         dtrend_arr[i] = (_p_arr[i] - _p_arr[i - 1]) / dt
-        d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i - 1]) / dt
+        d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i-1]) / dt
     mu_arr = np.array([])
     dmu_arr = np.array([])
     k_p_arr = np.zeros(n_max)
@@ -176,17 +176,16 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
 
     # Набор списков для перебора тривиальных алгоритмов
     # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
-    trend_range = [True, False]
+    """trend_range = [True, False]
     k_p_range = np.linspace(-1., 1., 4)
     k_i_range = np.linspace(-1., 1., 4)
     k_d_range = np.linspace(-1., 1., 4)
-    k_dd_range = [0.]
+    k_dd_range = [0.]"""
 
-    # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
-    
-    
-    
-    # trend_range, k_p_range, k_i_range, k_d_range, h_range = [False], [1.], [1.], [1.], [5000.]
+    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
+
+    # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [1.], [1.], [0.]
+
     # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [-1.], [-1.], [1.]
     #trend_range, k_i_range, k_d_range = [False], [-1.], [-1.]
     # Список словарей для окружения алгоритма
@@ -213,11 +212,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     # Main cycle
     for i in range(1, n_max - 1):
         ##### DEBUG ########
-        if i == 4:
-            pp = 0.
-        if i == 5:
-            pp = 0.
-        if i == 12:
+        if i == 27:
             pp = 0.
         ####################
         if i == n_max - 1:
@@ -228,7 +223,8 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         for alg_id, alg in enumerate(alg_lst):
             alg.calc_step(i)
             dg = alg.dg[i]
-            rating_cur[alg_id] = dg
+            if not alg.pos:
+                rating_cur[alg_id] = dg
             if dg > dgm:
                 dgm = dg
         dg_max_arr[i] = dgm
@@ -244,7 +240,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                   f'd/d2={round(diff_arr[i], 4)}/{round(diff2_arr[i], 4)}',
                   f'dtr/d2tr={round(dtrend_arr[i], 4)}/{round(d2trend_arr[i], 4)}',
                   f'dI={round(di_arr[i], 4)} dg={dg_arr[i]} dg_max={round(dg_max_arr[i], 4)} -> {des}')
-            print(f'Комбинированный алгоритм: {comb}')
+            # print(f'Комбинированный алгоритм: {comb}')
 
         # Теперь смотрим, что наторгует комбинированный алгоритм
         # dg_arr_comb[i] = sum(alg_lst[j].dg[i] for j in alg_lst_comb)
@@ -253,6 +249,10 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         comb.calc_step(i)
         # Меняем его состав по максимальным прибылям, если есть потребность
         # sorted(comb.algs, key=lambda x: x.dg[i], reverse=True)
+        new_alg_lst = []
+        rating_dg_g = []
+        g_num = 3
+        dg_num = 2
         for alg_id in rating_cur:
             new_alg_lst = [elem for elem in comb.algs]
             trivial_profit = alg_lst[alg_id].dg.cumsum()[i]
@@ -261,7 +261,13 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
                 if not alg.pos and not alg_lst[alg_id].pos and trivial_profit > alg_profit:
                     new_alg_lst.remove(alg)
                     new_alg_lst.append(alg_lst[alg_id])
+        """rating_dg_g.append((alg_id, alg_lst[alg_id].dg[i], alg_lst[alg_id].dg.sum()))
+        rating_dg_g_ordered = sorted(rating_dg_g, key=lambda x: x[2], reverse=True)
+        new_alg_lst.extend([alg_lst[elem[0]] for elem in rating_dg_g_ordered][:g_num])
+        rating_dg_g_ordered = sorted(rating_dg_g_ordered[g_num:], key=lambda x: x[1], reverse=True)
+        new_alg_lst.extend([alg_lst[elem[0]] for elem in rating_dg_g_ordered][:dg_num])"""
         comb.algs = [elem for elem in new_alg_lst]
+
         # Переключаемся на новый, если в том есть необходимость
         if alg_new_id >= 0 and dg_arr[i] < 0 and rating_cur[alg_new_id] > dg_arr[i]:
 
@@ -308,6 +314,11 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
 
     # if output_flag:
     print('Заработано:', profit, 'число переключений:', num_switches)
+    print('Тривиальные алгоритмы заработали:')
+    for elem in alg_lst:
+        profit_ser = pd.Series(np.cumsum(elem.dg), index=t_ticks_arr)
+        profit = profit_ser.iloc[-1]
+        print(f'{elem} --> {profit}')
     return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_p_ser, k_i_ser, k_d_ser, k_dd_ser
 
 
@@ -383,7 +394,7 @@ def visualize_trivials(algs_dct, dg_hybrid, dg_max, dg_comb, t_arr):
     ax.plot(g_max_ser, linewidth=4, color='cyan', linestyle=':', zorder=5)
     ax.plot(g_comb_ser, linewidth=4, color='green', zorder=5)
     legend.extend(['Алгоритм с переключением',
-                   'Боженька торгует так (теоретический максимум)',
+                   'Теоретический максимум',
                    'Комбинированный алгоритм'])
     legend_trivial = []
     for alg_str in algs_dct:
@@ -404,9 +415,9 @@ def visualize_trivials(algs_dct, dg_hybrid, dg_max, dg_comb, t_arr):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=15000)
+    data_tuple = load_test_data(step=5000)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[4], output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[0], output_flag=True)
     visualize(*res_tpl)
 
