@@ -38,10 +38,10 @@ class AlgTrivial:
     """
     Описывает тривиальный алгоритм набором из 5 параметров: тренд/разность (True/False), k_p, k_i, k_d, k_dd
     """
-    __H = 5000.
+    __H = 100.
 
     def __init__(self,
-                 p=[], mu=[], mu_min=0., mu_max=0., dmu=[], dt=0., _N=0, di_0=100000.,
+                 p=[], mu=[], mu_min=0., mu_max=0., dmu=[], dt=0., _N=0, di_0=100.,
                  idx=-1, trend_flag=True, k_p=1., k_i=1., k_d=1., k_dd=0.):
         self.p, self.mu, self.mu_min, self.mu_max, self.dmu, self.dt = p, mu, mu_min, mu_max, dmu, dt
         self.idx = idx
@@ -77,7 +77,7 @@ class AlgTrivial:
                 self.des = 'Close ' + self.pos.type
                 self.di[i] = self.pos.close(self.p[i])
                 sign = 1. if self.pos.type == 'short' else -1.
-                self.di[i+1] = .25 * self.__H * (sign * self.k_p * self.dg[i] +
+                self.di[i+1] = .25 * self.__H * (sign * self.k_p * (self.dg[i]-500.) +
                                                  self.k_i * integ_sum +
                                                  self.k_d * dg_diff +
                                                  self.k_dd * dg_diff_diff)
