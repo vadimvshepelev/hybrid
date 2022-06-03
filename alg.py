@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 import zipfile
 
+import trading
 from trading import Position, AlgTrivial, AlgCombined
 
 def load_test_data(step=5000):
@@ -79,6 +80,23 @@ def load_test_data(step=5000):
     price_series_btc_04 = np.array(col3_ser_btc_04)
     p_arr_btc_04 = np.array([price_series_btc_04[i] for i in range(len(price_series_btc_04)) if i % step == 0])
 
+    ###
+    hist_arr = np.array([0] + [p_arr_btc_04[i] - p_arr_btc_04[i-1] for i in range(1, len(p_arr_btc_04))])
+    hist_dict = {-1: 0, 0: 0, 1: 0}
+    for elem in hist_arr:
+        if abs(elem) < .015:
+            hist_dict[0] += 1
+        elif elem > 0:
+            hist_dict[1] += 1
+        else:
+            hist_dict[-1] += 1
+    num_ops = len(hist_arr)
+    for key in hist_dict:
+        hist_dict[key] /= num_ops
+    print(f'{num_ops} operations')
+    print(hist_dict)
+    ###
+
     return p_arr_stable, p_arr_growth, p_arr_si_14, p_arr_si_21, p_arr_fall, p_arr_btc_07, p_arr_btc_04
 
 
@@ -130,7 +148,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     """Тестирование PIDD-алгоритма на >200 различных конфигурациях параметра
     Расчет по алгоритму alg 0.5, на входе массив p и количество часов рабоыт биржи (разное для фьючерсов и биткойна)"""
     # Время для биржи с фьючерсом рубль-доллар -- 14 часов
-    di_0 = 100.
+    di_0 = 1000.
     # Для биткоина будет 24 часа
     n_max = len(_p_arr)
     t_max = time * 3600
@@ -147,7 +165,6 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     diff_arr = np.array([_p_arr[i] - _p_arr[i-1] if i >= 10 else 0. for i in range(n_max)])
     diff2_arr = np.array([diff_arr[i] - diff_arr[i-1] if i >= 10 else 0. for i in range(n_max)])
 
-
     dtrend_arr = np.zeros(n_max)
     d2trend_arr = np.zeros(n_max)
     # Считаем тренды и разности для передачи в алгоритмы
@@ -158,7 +175,10 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
         # dtrend_arr[i] = (gdp_trend[i] - gdp_trend[i-1]) / dt
         # d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i-1]) / dt
         dtrend_arr[i] = (_p_arr[i] - _p_arr[i - 1]) / dt
-        d2trend_arr[i] = (dtrend_arr[i] - dtrend_arr[i-1]) / dt
+        d2trend_arr[i] = 0.  # (dtrend_arr[i] - dtrend_arr[i-1]) / dt
+
+        dtrend_arr[i] = trading.calc_linreg(i, t_arr[i-10:i], _p_arr[i-10:i])
+
     mu_arr = np.array([])
     dmu_arr = np.array([])
     k_p_arr = np.zeros(n_max)
@@ -175,14 +195,17 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     alg_lst_comb = [0, 1, 2]
 
     # Набор списков для перебора тривиальных алгоритмов
-    # trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
+    """trend_range, k_i_range, k_d_range = [True, False], np.linspace(-1., 1., 101), np.linspace(-1., 1., 101)
+    k_p_range = [-1., 1.]
+    k_dd_range = [0.]"""
     """trend_range = [True, False]
     k_p_range = np.linspace(-1., 1., 4)
     k_i_range = np.linspace(-1., 1., 4)
     k_d_range = np.linspace(-1., 1., 4)
     k_dd_range = [0.]"""
 
-    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True], [-1., 1.], [-1., 0., 1.], [-100., 0., 100.], [0.]
+    # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [-1., 1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
+    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True], [1., .5, .2], [-1.], [0.], [0.]
 
     # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [1.], [1.], [0.]
 
@@ -318,7 +341,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     for elem in alg_lst:
         profit_ser = pd.Series(np.cumsum(elem.dg), index=t_ticks_arr)
         profit = profit_ser.iloc[-1]
-        print(f'{elem} --> {profit}')
+        print(f'{elem}, r={elem.r} --> {profit}')
     return p_ser, diff_ser, dg_max_ser, dg_ser, profit_ser, di_ser, i_ser, k_p_ser, k_i_ser, k_d_ser, k_dd_ser
 
 
@@ -415,9 +438,9 @@ def visualize_trivials(algs_dct, dg_hybrid, dg_max, dg_comb, t_arr):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=5000)
+    data_tuple = load_test_data(step=150)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
-    res_tpl = calc_hybrid_alg(data_tuple[5], output_flag=True)
+    res_tpl = calc_hybrid_alg(data_tuple[0], time=14, output_flag=True)
     visualize(*res_tpl)
 

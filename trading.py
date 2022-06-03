@@ -1,5 +1,10 @@
 import math
+
 import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class Position:
@@ -38,7 +43,7 @@ class AlgTrivial:
     """
     Описывает тривиальный алгоритм набором из 5 параметров: тренд/разность (True/False), k_p, k_i, k_d, k_dd
     """
-    __H = 100.
+    __H = -1000.
 
     def __init__(self,
                  p=[], mu=[], mu_min=0., mu_max=0., dmu=[], dt=0., _N=0, di_0=100.,
@@ -50,6 +55,7 @@ class AlgTrivial:
         self.dg = np.zeros(_N)
         self.di = np.zeros(_N)
         self.di[1] = di_0
+        self.r = 37.5
 
     def calc_step(self, i, di_rec=0):
         # Производные прибыли dg для управления
@@ -62,13 +68,16 @@ class AlgTrivial:
         dg_diff_diff = (dg_diff - dg_diff_prev) / self.dt
         # Integral part
         integ_sum = 0.
-        if i > 10:
-            coef_arr = np.array([math.exp(float(-j) / 10.) for j in range(10, -1, -1)])
-            for cnt in range(10, -1, -1):
-                integ_sum += self.dg[i - cnt] * coef_arr[10 - cnt]
+        num_cells = 30
+        if i > num_cells:
+            coef_arr = np.array([math.exp(float(-j) / num_cells) for j in range(num_cells, -1, -1)])
+            for cnt in range(num_cells, -1, -1):
+                integ_sum += self.dg[i - cnt] * coef_arr[num_cells - cnt]
         # Double-differential part
-        k_dd = 0.
+        # k_dd = 0.
         # Decision part
+        r_const = 37.5
+        nu_factor = 10.
         if di_rec != 0:
             self.di[i] = di_rec
         if self.pos:
@@ -77,10 +86,12 @@ class AlgTrivial:
                 self.des = 'Close ' + self.pos.type
                 self.di[i] = self.pos.close(self.p[i])
                 sign = 1. if self.pos.type == 'short' else -1.
-                self.di[i+1] = .25 * self.__H * (sign * self.k_p * (self.dg[i]-500.) +
+                # if sum(self.dg) >= self.r:
+                #    self.r += 37.5
+                self.di[i+1] = .25 * self.__H * (sign * self.k_p * (self.dg[i] - self.r) +  # пытаюсь прийти к 10
                                                  self.k_i * integ_sum +
                                                  self.k_d * dg_diff +
-                                                 self.k_dd * dg_diff_diff)
+                                                 self.k_dd * dg_diff_diff) + nu_factor
                 self.pos = None
             else:
                 self.des = 'Hold'
@@ -104,8 +115,10 @@ class AlgTrivial:
         return
 
     def __str__(self):
-        return f'alg {self.idx}: {self.trend_flag} {round(self.k_p, 3)} ' + \
-               f'{round(self.k_i, 3)} {round(self.k_d,3)} {round(self.k_dd, 3)}'
+        # return f'alg {self.idx}: {self.trend_flag} {round(self.k_p, 4)} ' + \
+        #      f'{round(self.k_i, 4)} {round(self.k_d,4)} {round(self.k_dd, 4)}'
+        return f'alg {self.idx}: {self.trend_flag} {self.k_p} ' + \
+               f'{self.k_i} {self.k_d} {self.k_dd}'
 
 
 class AlgCombined:
@@ -127,3 +140,31 @@ class AlgCombined:
 
     def __str__(self):
         return ' '.join(str(elem.idx) for elem in self.algs)
+
+
+def calc_linreg(i: int, x: np.array, y: np.array) -> tuple:
+    """x_train, y_train = x.reshape((-1, 1)), y
+    print(x_train, y_train)
+    print(type(x_train), type(y_train))
+    regressor = LinearRegression()
+    regressor.fit(x_train, y_train)
+    k, b = regressor.coef_, regressor.intercept_"""
+
+    # x = np.array([0., 120., 240., 360., 480., 600., 720., 840., 960., 1080.])
+    # y = np.array([52683.98, 52582.59, 52748.68, 52717.39, 52603.43, 52517.86, 52536.28, 52484.11, 52472.27, 52388.01])
+
+    x_train = x.reshape((-1, 1))
+    model = LinearRegression()
+    model.fit(x_train, y)
+    k, b = model.coef_, model.intercept_
+
+    if i == -1:
+        # Graph
+        x_reg = np.linspace(.8*min(x), 1.2*max(x), 50)
+        y_reg = k*x_reg + b
+        _, ax = plt.subplots(figsize=(12, 8))
+        ax.scatter(x, y)
+        ax.plot(x_reg, y_reg)
+        #
+        plt.show()
+    return k
