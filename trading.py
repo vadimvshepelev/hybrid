@@ -43,7 +43,7 @@ class AlgTrivial:
     """
     Описывает тривиальный алгоритм набором из 5 параметров: тренд/разность (True/False), k_p, k_i, k_d, k_dd
     """
-    __H = -1000.
+    __H = 1000.
 
     def __init__(self,
                  p=[], mu=[], mu_min=0., mu_max=0., dmu=[], dt=0., _N=0, di_0=100.,
@@ -66,6 +66,10 @@ class AlgTrivial:
         if i > 2:
             dg_diff_prev = (self.dg[i - 2] - self.dg[i - 3]) / self.dt
         dg_diff_diff = (dg_diff - dg_diff_prev) / self.dt
+
+
+        print(self.dt)
+
         # Integral part
         integ_sum = 0.
         num_cells = 30

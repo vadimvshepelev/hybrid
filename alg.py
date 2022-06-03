@@ -205,7 +205,7 @@ def calc_hybrid_alg(_p_arr: np.array, output_flag=True, time=14, diff_min=.1, di
     k_dd_range = [0.]"""
 
     # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True, False], [-1., 1.], [-1., 0., 1.], [-1., 0., 1.], [0.]
-    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True], [1., .5, .2], [-1.], [0.], [0.]
+    trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [True], [1., .5, .2], [-.25], [0.], [0.]
 
     # trend_range, k_p_range, k_i_range, k_d_range, k_dd_range = [False], [1.], [1.], [1.], [0.]
 
@@ -438,7 +438,7 @@ def visualize_trivials(algs_dct, dg_hybrid, dg_max, dg_comb, t_arr):
 
 
 if __name__ == '__main__':
-    data_tuple = load_test_data(step=150)
+    data_tuple = load_test_data(step=510)
     # print(data_tuple)
     # res_tpl = calc_alg5(data_tuple[0], output_flag=True)
     res_tpl = calc_hybrid_alg(data_tuple[0], time=14, output_flag=True)
